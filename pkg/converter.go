@@ -1,9 +1,12 @@
 package pkg
 
 import (
+	"fmt"
 	"github.com/hourglasshoro/auto-table/pkg/dialect"
+	"github.com/naoina/go-stringutil"
 	"go/ast"
 	"log"
+	"strings"
 )
 
 const (
@@ -35,6 +38,7 @@ func (c *Converter) CreateTable() error {
 		}
 		for k, v := range m {
 			structASTMap[k] = v
+
 		}
 	}
 
@@ -42,11 +46,34 @@ func (c *Converter) CreateTable() error {
 	for name, structAST := range structASTMap {
 		for _, fld := range structAST.StructType.Fields.List {
 			typeName, err := detectTypeName(fld)
+
+			var fieldName *string
+			var foreignKey *dialect.ForeignKey
+
+			// Check to see if it is a dependent struct
+			if parent, ok := structASTMap[strings.ToLower(typeName)]; ok {
+				var hasID bool
+				for _, f := range parent.StructType.Fields.List {
+					idCandidate := "id"
+					if strings.ToLower(f.Names[0].Name) == idCandidate {
+						hasID = true
+						typeName, err = detectTypeName(f.Type)
+						f := fmt.Sprintf("%v%v", stringutil.ToUpperCamelCase(fld.Names[0].Name), stringutil.ToUpperCamelCase(idCandidate))
+						fieldName = &f
+						foreignKey = &dialect.ForeignKey{
+							Table:  parent.Name,
+							Column: idCandidate,
+						}
+					}
+				}
+				if !hasID {
+				}
+			}
 			if err != nil {
 				log.Fatal(err)
 				return err
 			}
-			f, err := newField(c.dialect, name, typeName, fld)
+			f, err := newField(c.dialect, name, typeName, fieldName, fld, foreignKey)
 			if err != nil {
 				return err
 			}
@@ -54,6 +81,7 @@ func (c *Converter) CreateTable() error {
 				continue
 			}
 			if !(ast.IsExported(f.Name) || (f.Name == "_" && f.Name != f.Column)) {
+				log.Println(f.Name)
 				continue
 			}
 			if structMap[name] == nil {
@@ -78,15 +106,17 @@ func (c *Converter) CreateTable() error {
 		for i, f := range tbl.Fields {
 			fields[i] = f.ToField()
 		}
-		newPks := makePrimaryKeyColumns(tbl.Fields)
-		pkColumns := make([]string, len(newPks))
-		for i, pk := range newPks {
+		pks := makePrimaryKeyColumns(tbl.Fields)
+		pkColumns := make([]string, len(pks))
+		for i, pk := range pks {
 			pkColumns[i] = pk.ToField().Name
 		}
+		fksColumns := makeForeignKeyColumns(tbl.Fields)
 		schemas = append(schemas, c.dialect.CreateTableSQL(dialect.Table{
 			Name:        name,
 			Fields:      fields,
 			PrimaryKeys: pkColumns,
+			ForeignKeys: fksColumns,
 			Option:      tbl.Option,
 		})...)
 	}

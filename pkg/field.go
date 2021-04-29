@@ -24,15 +24,19 @@ type field struct {
 	Default       string
 	Extra         string
 	Nullable      bool
+	ForeignKey    *dialect.ForeignKey
 }
 
-func newField(d dialect.Dialect, tableName string, typeName string, f *ast.Field) (*field, error) {
+func newField(d dialect.Dialect, tableName string, typeName string, fieldName *string, f *ast.Field, foreignKey *dialect.ForeignKey) (*field, error) {
 	ret := &field{
 		Table:  tableName,
 		GoType: typeName,
 	}
 	if len(f.Names) > 0 && f.Names[0] != nil {
 		ret.Name = f.Names[0].Name
+		if fieldName != nil {
+			ret.Name = *fieldName
+		}
 	}
 	if ret.IsEmbedded() {
 		return ret, nil
@@ -59,6 +63,9 @@ func newField(d dialect.Dialect, tableName string, typeName string, f *ast.Field
 			ret.Nullable = d.IsNullable(strings.TrimLeft(ret.GoType, "*"))
 		}
 	}
+	if foreignKey != nil {
+		ret.ForeignKey = foreignKey
+	}
 	var colType string
 	if ret.Type == "" {
 		colType = strings.TrimLeft(ret.GoType, "*")
@@ -83,14 +90,26 @@ func (f *field) ToField() dialect.Field {
 		Default:       f.Default,
 		Extra:         f.Extra,
 		Nullable:      f.Nullable,
+		ForeignKey:    f.ForeignKey,
 	}
 }
 
-func makePrimaryKeyColumns(newFields []*field) (newPks []*field) {
-	for _, f := range newFields {
+func makePrimaryKeyColumns(fields []*field) (pks []*field) {
+	for _, f := range fields {
 		if f.PrimaryKey {
-			newPks = append(newPks, f)
+			pks = append(pks, f)
 		}
 	}
+	return
+}
+
+func makeForeignKeyColumns(fields []*field) (fks map[string]dialect.ForeignKey) {
+	fks = map[string]dialect.ForeignKey{} //map[fieldName]reference
+	for _, f := range fields {
+		if f.ForeignKey != nil {
+			fks[f.Name] = *f.ForeignKey
+		}
+	}
+
 	return
 }

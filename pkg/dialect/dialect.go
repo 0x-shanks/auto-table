@@ -44,7 +44,13 @@ type Table struct {
 	Name        string
 	Fields      []Field
 	PrimaryKeys []string
+	ForeignKeys map[string]ForeignKey //map[columnName]reference
 	Option      string
+}
+
+type ForeignKey struct {
+	Table  string
+	Column string
 }
 
 type Field struct {
@@ -56,6 +62,7 @@ type Field struct {
 	Default       string
 	Extra         string
 	Nullable      bool
+	ForeignKey    *ForeignKey
 }
 
 type Index struct {

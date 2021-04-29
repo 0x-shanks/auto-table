@@ -3,6 +3,7 @@ package dialect
 import (
 	"database/sql"
 	"fmt"
+	"github.com/naoina/go-stringutil"
 	"strings"
 )
 
@@ -144,6 +145,15 @@ func (d *MySQL) CreateTableSQL(table Table) []string {
 			pkColumns[i] = d.Quote(pk)
 		}
 		columns = append(columns, fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(pkColumns, ", ")))
+	}
+	if len(table.ForeignKeys) > 0 {
+		for name, reference := range table.ForeignKeys {
+			columns = append(columns,
+				fmt.Sprintf("FOREIGN KEY (%s) REFERENCES %s(%s)",
+					d.Quote(stringutil.ToSnakeCase(name)),
+					d.Quote(stringutil.ToSnakeCase(reference.Table)),
+					d.Quote(reference.Column)))
+		}
 	}
 	query := fmt.Sprintf("CREATE TABLE %s (\n"+
 		"  %s\n"+

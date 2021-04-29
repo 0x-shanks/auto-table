@@ -9,6 +9,7 @@ import (
 )
 
 type structAST struct {
+	Name       string
 	StructType *ast.StructType
 	Annotation *annotation
 }
@@ -26,8 +27,8 @@ func makeStructASTMap(filename string) (map[string]*structAST, error) {
 		if !ok || d.Tok != token.TYPE || d.Doc == nil {
 			continue
 		}
-
 		// General Declaration && isType true && //+hoge
+
 		annotation, err := parseAnnotation(d.Doc)
 		if err != nil {
 			return nil, err
@@ -45,6 +46,7 @@ func makeStructASTMap(filename string) (map[string]*structAST, error) {
 				continue
 			}
 			st := &structAST{
+				Name:       s.Name.Name,
 				StructType: t,
 				Annotation: annotation,
 			}
