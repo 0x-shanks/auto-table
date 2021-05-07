@@ -60,31 +60,45 @@ func makeStructASTMap(filename string) (map[string]*structAST, error) {
 	return structASTMap, nil
 }
 
-func detectTypeName(n ast.Node) (string, error) {
+func detectTypeName(n ast.Node) (str string, name string, isPtr bool, isArray bool, err error) {
 	switch t := n.(type) {
 	case *ast.Field:
 		return detectTypeName(t.Type)
 	case *ast.Ident:
-		return t.Name, nil
+		str = t.Name
+		name = t.Name
+		return
 	case *ast.SelectorExpr:
-		name, err := detectTypeName(t.X)
-		if err != nil {
-			return "", err
+		xStr, _, _, _, xErr := detectTypeName(t.X)
+		if xErr != nil {
+			err = xErr
+			return
 		}
-		return name + "." + t.Sel.Name, nil
+		str = xStr + "." + t.Sel.Name
+		name = xStr + "." + t.Sel.Name
+		return
 	case *ast.StarExpr:
-		name, err := detectTypeName(t.X)
-		if err != nil {
-			return "", err
+		xStr, _, _, _, xErr := detectTypeName(t.X)
+		if xErr != nil {
+			err = xErr
+			return
 		}
-		return "*" + name, nil
+		str = "*" + xStr
+		name = xStr
+		isPtr = true
+		return
 	case *ast.ArrayType:
-		name, err := detectTypeName(t.Elt)
-		if err != nil {
-			return "", err
+		eltStr, _, _, _, eltErr := detectTypeName(t.Elt)
+		if eltErr != nil {
+			err = eltErr
+			return
 		}
-		return "[]" + name, nil
+		str = "[]" + eltStr
+		name = eltStr
+		isArray = true
+		return
 	default:
-		return "", fmt.Errorf("auto-table: BUG: unknown type %T", t)
+		err = fmt.Errorf("auto-table: BUG: unknown type %T", t)
+		return
 	}
 }

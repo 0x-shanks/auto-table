@@ -16,8 +16,9 @@ const (
 )
 
 type Converter struct {
-	Dialect dialect.Dialect
-	AutoID  bool // Flag to automatically set id as primary key
+	Dialect  dialect.Dialect
+	AutoID   bool // Flag to automatically set id as primary key
+	ModelDir string
 }
 
 func NewConverter() *Converter {
@@ -50,8 +51,12 @@ func (c *Converter) CreateTable() error {
 
 	structMap := map[string]*table{}
 	for name, structAST := range structASTMap {
+
+		var hasID bool    // Whether or not this struct has an ID field
+		var idType string // Type of ID field
+
 		for _, fld := range structAST.StructType.Fields.List {
-			typeName, err := detectTypeName(fld)
+			typeStr, typeName, _, isArray, err := detectTypeName(fld)
 
 			var fieldName *string
 			var foreignKey *dialect.ForeignKey
@@ -62,35 +67,86 @@ func (c *Converter) CreateTable() error {
 			if strings.ToLower(fld.Names[0].Name) == idCandidate {
 				if c.AutoID {
 					primaryKey = true
-					_, autoIncrement = intPrimitives[typeName]
+					_, autoIncrement = intPrimitives[typeStr]
+					hasID = true
+					idType = typeStr
 				}
 			}
 
 			// Check to see if it is a dependent struct
 			if parent, ok := structASTMap[strings.ToLower(typeName)]; ok {
-				var hasID bool
-				for _, f := range parent.StructType.Fields.List {
+				if isArray {
+					// many-to-many
 
-					if strings.ToLower(f.Names[0].Name) == idCandidate {
+					// Make cross reference table
+					crossReference := fmt.Sprintf("%s_%s", name, strings.ToLower(typeName))
+					structMap[crossReference] = &table{}
+					// self field
+					sFieldName := fmt.Sprintf("%s_id", name)
+					if !hasID {
+						fErr := fmt.Errorf("%s doesn't have %s", name, idCandidate)
+						log.Printf("WARN: %s", fErr)
+						continue
+					}
+					sForeignKey := &dialect.ForeignKey{
+						Table:  name,
+						Column: idCandidate,
+					}
+					f, fErr := newField(c.Dialect, name, idType, &sFieldName, fld, sForeignKey, true, false)
+					if fErr != nil {
+						log.Printf("WARN: %s", fErr)
+						continue
+					}
+					structMap[crossReference].Fields = append(structMap[crossReference].Fields, f)
 
-						typeName, err = detectTypeName(f.Type)
-						hasID = true
-						f := fmt.Sprintf("%v%v", stringutil.ToUpperCamelCase(fld.Names[0].Name), stringutil.ToUpperCamelCase(idCandidate))
-						fieldName = &f
-						foreignKey = &dialect.ForeignKey{
-							Table:  parent.Name,
-							Column: idCandidate,
+					// parent field
+					var pTypeStr string
+					var pFieldName *string
+					var pForeignKey *dialect.ForeignKey
+					for _, f := range parent.StructType.Fields.List {
+						// Set foreign key
+						if strings.ToLower(f.Names[0].Name) == idCandidate {
+
+							pTypeStr, _, _, _, err = detectTypeName(f.Type)
+							f := fmt.Sprintf("%v%v", stringutil.ToUpperCamelCase(fld.Names[0].Name), stringutil.ToUpperCamelCase(idCandidate))
+							pFieldName = &f
+							pForeignKey = &dialect.ForeignKey{
+								Table:  parent.Name,
+								Column: idCandidate,
+							}
+						}
+					}
+					f, fErr = newField(c.Dialect, name, pTypeStr, pFieldName, fld, pForeignKey, true, false)
+					if fErr != nil {
+						log.Printf("WARN: %s", fErr)
+						continue
+					}
+					structMap[crossReference].Fields = append(structMap[crossReference].Fields, f)
+
+					// This is a case of an cross reference table, so no columns are added.
+					continue
+				} else {
+					// one-to-many
+					for _, f := range parent.StructType.Fields.List {
+						// Set foreign key
+						if strings.ToLower(f.Names[0].Name) == idCandidate {
+							typeStr, _, _, _, err = detectTypeName(f.Type)
+							f := fmt.Sprintf("%v%v", stringutil.ToUpperCamelCase(fld.Names[0].Name), stringutil.ToUpperCamelCase(idCandidate))
+							fieldName = &f
+							foreignKey = &dialect.ForeignKey{
+								Table:  parent.Name,
+								Column: idCandidate,
+							}
 						}
 					}
 				}
-				if !hasID {
-				}
 			}
+
 			if err != nil {
 				log.Fatal(err)
 				return err
 			}
-			f, err := newField(c.Dialect, name, typeName, fieldName, fld, foreignKey, primaryKey, autoIncrement)
+			f, err := newField(c.Dialect, name, typeStr, fieldName, fld, foreignKey, primaryKey, autoIncrement)
 			if err != nil {
 				return err
 			}
