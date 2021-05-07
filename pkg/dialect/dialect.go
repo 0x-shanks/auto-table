@@ -9,6 +9,7 @@ type Dialect interface {
 	QuoteString(s string) string
 
 	CreateTableSQL(table Table) []string
+	DropTableSQL(table Table) []string
 	AddColumnSQL(field Field) []string
 	DropColumnSQL(field Field) []string
 	ModifyColumnSQL(oldField, newField Field) []string

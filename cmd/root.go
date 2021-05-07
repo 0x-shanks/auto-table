@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/hourglasshoro/auto-table/pkg"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"os"
 
@@ -39,9 +40,19 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	Run: func(cmd *cobra.Command, args []string) {
-		conv := pkg.NewConverter()
-		conv.CreateTable()
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("cannot get current dir")
+		}
+		source := cmd.Flag("source").Value.String()
+		source = pkg.Solve(source, currentDir)
+		output := cmd.Flag("output").Value.String()
+		output = pkg.Solve(output, currentDir)
+		defaultFileSystem := afero.NewOsFs()
+		conv := pkg.NewConverter(source, output, defaultFileSystem)
+		err = conv.CreateSQL()
+		return
 	},
 }
 
@@ -63,6 +74,9 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	rootCmd.Flags().StringP("source", "s", "", "Directory to search")
+	rootCmd.Flags().StringP("output", "o", "", "Directory to output")
 }
 
 // initConfig reads in config file and ENV variables if set.

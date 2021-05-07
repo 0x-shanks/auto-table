@@ -139,6 +139,9 @@ func (d *MySQL) CreateTableSQL(table Table) []string {
 	for i, f := range table.Fields {
 		columns[i] = d.columnSQL(f)
 	}
+	columns = append(columns, "`created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+	columns = append(columns, "`updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+
 	if len(table.PrimaryKeys) > 0 {
 		pkColumns := make([]string, len(table.PrimaryKeys))
 		for i, pk := range table.PrimaryKeys {
@@ -155,9 +158,18 @@ func (d *MySQL) CreateTableSQL(table Table) []string {
 					d.Quote(reference.Column)))
 		}
 	}
-	query := fmt.Sprintf("CREATE TABLE %s (\n"+
+
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n"+
 		"  %s\n"+
-		")", d.Quote(table.Name), strings.Join(columns, ",\n  "))
+		");", d.Quote(table.Name), strings.Join(columns, ",\n  "))
+	if table.Option != "" {
+		query += " " + table.Option
+	}
+	return []string{query}
+}
+
+func (d *MySQL) DropTableSQL(table Table) []string {
+	query := fmt.Sprintf("DROP TABLE IF EXISTS %s;", d.Quote(table.Name))
 	if table.Option != "" {
 		query += " " + table.Option
 	}
