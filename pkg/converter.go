@@ -16,17 +16,23 @@ const (
 )
 
 type Converter struct {
-	dialect dialect.Dialect
+	Dialect dialect.Dialect
+	AutoID  bool // Flag to automatically set id as primary key
 }
 
 func NewConverter() *Converter {
 	return &Converter{
-		dialect: dialect.NewMySQL(),
+		Dialect: dialect.NewMySQL(),
+		AutoID:  true,
 	}
 }
 
+const idCandidate = "id"
+
+var intPrimitives = map[string]struct{}{"int8": {}, "int16": {}, "int32": {}, "int64": {}, "int": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {}, "uint": {}}
+
 func (c *Converter) CreateTable() error {
-	filenames := []string{"./example/domain/micropost.go", "./example/domain/user.go", "./example/domain/birthday.go"}
+	filenames := []string{"./example/domain/micropost.go", "./example/domain/user.go", "./example/domain/tag.go"}
 
 	structASTMap := make(map[string]*structAST)
 
@@ -49,15 +55,26 @@ func (c *Converter) CreateTable() error {
 
 			var fieldName *string
 			var foreignKey *dialect.ForeignKey
+			var primaryKey bool
+			var autoIncrement bool
+
+			// Check if there is a field named id
+			if strings.ToLower(fld.Names[0].Name) == idCandidate {
+				if c.AutoID {
+					primaryKey = true
+					_, autoIncrement = intPrimitives[typeName]
+				}
+			}
 
 			// Check to see if it is a dependent struct
 			if parent, ok := structASTMap[strings.ToLower(typeName)]; ok {
 				var hasID bool
 				for _, f := range parent.StructType.Fields.List {
-					idCandidate := "id"
+
 					if strings.ToLower(f.Names[0].Name) == idCandidate {
-						hasID = true
+
 						typeName, err = detectTypeName(f.Type)
+						hasID = true
 						f := fmt.Sprintf("%v%v", stringutil.ToUpperCamelCase(fld.Names[0].Name), stringutil.ToUpperCamelCase(idCandidate))
 						fieldName = &f
 						foreignKey = &dialect.ForeignKey{
@@ -73,7 +90,7 @@ func (c *Converter) CreateTable() error {
 				log.Fatal(err)
 				return err
 			}
-			f, err := newField(c.dialect, name, typeName, fieldName, fld, foreignKey)
+			f, err := newField(c.Dialect, name, typeName, fieldName, fld, foreignKey, primaryKey, autoIncrement)
 			if err != nil {
 				return err
 			}
@@ -112,7 +129,7 @@ func (c *Converter) CreateTable() error {
 			pkColumns[i] = pk.ToField().Name
 		}
 		fksColumns := makeForeignKeyColumns(tbl.Fields)
-		schemas = append(schemas, c.dialect.CreateTableSQL(dialect.Table{
+		schemas = append(schemas, c.Dialect.CreateTableSQL(dialect.Table{
 			Name:        name,
 			Fields:      fields,
 			PrimaryKeys: pkColumns,

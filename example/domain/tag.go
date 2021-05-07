@@ -1,8 +1,8 @@
 package domain
 
 //+test
-type User struct {
-	ID          string
+type Tag struct {
+	ID          int64
 	Name        string
 	Description string
 }

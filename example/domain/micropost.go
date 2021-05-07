@@ -6,4 +6,5 @@ type Micropost struct {
 	Author    User
 	Content   string
 	LikeCount uint32
+	Tag       []Tag
 }

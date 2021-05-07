@@ -27,7 +27,16 @@ type field struct {
 	ForeignKey    *dialect.ForeignKey
 }
 
-func newField(d dialect.Dialect, tableName string, typeName string, fieldName *string, f *ast.Field, foreignKey *dialect.ForeignKey) (*field, error) {
+func newField(
+	d dialect.Dialect,
+	tableName string,
+	typeName string,
+	fieldName *string,
+	f *ast.Field,
+	foreignKey *dialect.ForeignKey,
+	primaryKey bool,
+	autoIncrement bool,
+) (*field, error) {
 	ret := &field{
 		Table:  tableName,
 		GoType: typeName,
@@ -38,6 +47,8 @@ func newField(d dialect.Dialect, tableName string, typeName string, fieldName *s
 			ret.Name = *fieldName
 		}
 	}
+	ret.PrimaryKey = primaryKey
+	ret.AutoIncrement = autoIncrement
 	if ret.IsEmbedded() {
 		return ret, nil
 	}
