@@ -204,8 +204,17 @@ func (c *Converter) CreateSQL() error {
 	}
 
 	type schema struct {
-		Create string
-		Drop   string
+		Table struct {
+			Create string
+			Drop   string
+		}
+		Record struct {
+			FindAll string
+			Find    string
+			Create  string
+			Delete  string
+			Update  string
+		}
 	}
 
 	schemas := map[string]*schema{} // map[tableName]schema
@@ -228,12 +237,35 @@ func (c *Converter) CreateSQL() error {
 			ForeignKeys: fksColumns,
 			Option:      tbl.Option,
 		}
-		createSchema := strings.Join(c.Dialect.CreateTableSQL(t), "")
-		dropSchema := strings.Join(c.Dialect.DropTableSQL(t), "")
+		createTableSchema := strings.Join(c.Dialect.CreateTableSQL(t), "")
+		dropTableSchema := strings.Join(c.Dialect.DropTableSQL(t), "")
+		findAllSchema := strings.Join(c.Dialect.FindAllSQL(t), "")
+		findSchema := strings.Join(c.Dialect.FindSQL(t), "")
+		createSchema := strings.Join(c.Dialect.CreateSQL(t), "")
+		deleteSchema := strings.Join(c.Dialect.DeleteSQL(t), "")
+		updateSchema := strings.Join(c.Dialect.UpdateSQL(t), "")
 
 		schemas[name] = &schema{
-			Create: createSchema,
-			Drop:   dropSchema,
+			Table: struct {
+				Create string
+				Drop   string
+			}{
+				Create: createTableSchema,
+				Drop:   dropTableSchema,
+			},
+			Record: struct {
+				FindAll string
+				Find    string
+				Create  string
+				Delete  string
+				Update  string
+			}{
+				FindAll: findAllSchema,
+				Find:    findSchema,
+				Create:  createSchema,
+				Delete:  deleteSchema,
+				Update:  updateSchema,
+			},
 		}
 	}
 
@@ -245,12 +277,12 @@ func (c *Converter) CreateSQL() error {
 				timestamp := t.Unix()
 				t = t.Add(time.Second * 1)
 				filename := fmt.Sprintf("%s/%d_add_%s_table.up.sql", c.OutputDir, timestamp, tableName)
-				err := afero.WriteFile(c.FileSystem, filename, []byte(schemas[tableName].Create), 0644)
+				err := afero.WriteFile(c.FileSystem, filename, []byte(schemas[tableName].Table.Create), 0644)
 				if err != nil {
 					log.Printf("WARN: %s", err)
 				}
 				filename = fmt.Sprintf("%s/%d_add_%s_table.down.sql", c.OutputDir, timestamp, tableName)
-				err = afero.WriteFile(c.FileSystem, filename, []byte(schemas[tableName].Drop), 0644)
+				err = afero.WriteFile(c.FileSystem, filename, []byte(schemas[tableName].Table.Drop), 0644)
 				if err != nil {
 					log.Printf("WARN: %s", err)
 				}

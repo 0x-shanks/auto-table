@@ -15,7 +15,9 @@ limitations under the License.
 */
 package main
 
-import "github.com/hourglasshoro/auto-table/cmd"
+import (
+	"github.com/hourglasshoro/auto-table/cmd"
+)
 
 func main() {
 	cmd.Execute()

@@ -10,6 +10,11 @@ type Dialect interface {
 
 	CreateTableSQL(table Table) []string
 	DropTableSQL(table Table) []string
+	FindAllSQL(table Table) []string
+	FindSQL(table Table) []string
+	CreateSQL(table Table) []string
+	DeleteSQL(table Table) []string
+	UpdateSQL(table Table) []string
 	AddColumnSQL(field Field) []string
 	DropColumnSQL(field Field) []string
 	ModifyColumnSQL(oldField, newField Field) []string

@@ -139,8 +139,9 @@ func (d *MySQL) CreateTableSQL(table Table) []string {
 	for i, f := range table.Fields {
 		columns[i] = d.columnSQL(f)
 	}
+	//TODO: not use append
 	columns = append(columns, "`created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-	columns = append(columns, "`updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+	columns = append(columns, "`updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
 
 	if len(table.PrimaryKeys) > 0 {
 		pkColumns := make([]string, len(table.PrimaryKeys))
@@ -173,6 +174,60 @@ func (d *MySQL) DropTableSQL(table Table) []string {
 	if table.Option != "" {
 		query += " " + table.Option
 	}
+	return []string{query}
+}
+
+func (d *MySQL) FindAllSQL(table Table) []string {
+	columns := make([]string, len(table.Fields))
+	for i, f := range table.Fields {
+		columns[i] = d.Quote(f.Name)
+	}
+	columns = append(columns, "`created_at`")
+	columns = append(columns, "`updated_at`")
+	query := fmt.Sprintf("SELECT %s FROM %s;", strings.Join(columns, ", "), d.Quote(table.Name))
+	return []string{query}
+}
+
+func (d *MySQL) FindSQL(table Table) []string {
+	columns := make([]string, len(table.Fields))
+	for i, f := range table.Fields {
+		columns[i] = d.Quote(f.Name)
+	}
+	columns = append(columns, "`created_at`")
+	columns = append(columns, "`updated_at`")
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s = ?;", strings.Join(columns, ", "), d.Quote(table.Name), columns[0])
+	return []string{query}
+}
+
+func (d *MySQL) CreateSQL(table Table) []string {
+	columns := make([]string, len(table.Fields))
+	values := make([]string, len(table.Fields))
+	for i, f := range table.Fields {
+		columns[i] = d.Quote(f.Name)
+		values[i] = "?"
+	}
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);", d.Quote(table.Name), strings.Join(columns, ", "), strings.Join(values, ", "))
+	return []string{query}
+}
+
+func (d *MySQL) DeleteSQL(table Table) []string {
+	columns := make([]string, len(table.Fields))
+	for i, f := range table.Fields {
+		columns[i] = d.Quote(f.Name)
+	}
+	query := fmt.Sprintf("DELETE FROM %s WHERE %s = ?;", d.Quote(table.Name), d.Quote(table.Fields[0].Name))
+	return []string{query}
+}
+
+func (d *MySQL) UpdateSQL(table Table) []string {
+	set := make([]string, len(table.Fields))
+	for i, f := range table.Fields {
+		if i == 0 {
+			continue
+		}
+		set[i] = fmt.Sprintf("%s = ?", d.Quote(f.Name))
+	}
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = ?;", d.Quote(table.Name), strings.Join(set, " "), d.Quote(table.Fields[0].Name))
 	return []string{query}
 }
 

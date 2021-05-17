@@ -3,7 +3,7 @@ package domain
 //+test
 type Micropost struct {
 	ID        string
-	Author    User
+	AuthorID  string `test:"User"`
 	Content   string
 	LikeCount uint32
 	Tag       []Tag
