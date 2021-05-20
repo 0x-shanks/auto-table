@@ -2,7 +2,7 @@ root = "."
 
 [build]
 # Just plain old shell command. You could use `make` as well.
-cmd = "go run main.go -s ./example/domain"
+cmd = "go run main.go -s ./example/domain -o tmp"
 
 [misc]
 clean_on_exit = true
