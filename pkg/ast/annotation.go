@@ -1,9 +1,10 @@
-package pkg
+package ast
 
 import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/hourglasshoro/auto-table/pkg/utils"
 	"go/ast"
 	"strconv"
 	"strings"
@@ -14,7 +15,12 @@ type annotation struct {
 	Option string
 }
 
-func parseAnnotation(g *ast.CommentGroup) (*annotation, error) {
+const (
+	commentPrefix       = "//"
+	annotationSeparator = ':'
+)
+
+func parseAnnotation(g *ast.CommentGroup, marker string) (*annotation, error) {
 	for _, c := range g.List {
 		if !strings.HasPrefix(c.Text, commentPrefix) {
 			continue
@@ -26,7 +32,7 @@ func parseAnnotation(g *ast.CommentGroup) (*annotation, error) {
 		if len(s) == len(marker) {
 			return &annotation{}, nil
 		}
-		if !isSpace(s[len(marker)]) {
+		if !utils.IsSpace(s[len(marker)]) {
 			continue
 		}
 		var a annotation
@@ -64,7 +70,7 @@ func splitAnnotationTags(data []byte, atEOF bool) (advance int, token []byte, er
 		return 0, nil, nil
 	}
 	for ; advance < len(data); advance++ {
-		if !isSpace(data[advance]) {
+		if !utils.IsSpace(data[advance]) {
 			break
 		}
 	}
@@ -90,7 +96,7 @@ func splitAnnotationTags(data []byte, atEOF bool) (advance int, token []byte, er
 		}
 		return 0, nil, fmt.Errorf("auto-table: invalid annotation: string not terminated")
 	case '`':
-		for advance++; advance < len(data); advance++ {
+		for advance++; advance < len(data); {
 			i := bytes.IndexByte(data[advance:], quote)
 			if i < 0 {
 				break
@@ -100,11 +106,11 @@ func splitAnnotationTags(data []byte, atEOF bool) (advance int, token []byte, er
 		}
 		return 0, nil, fmt.Errorf("auto-table: invalid annotation: string not terminated")
 	}
-	if isSpace(data[advance]) {
+	if utils.IsSpace(data[advance]) {
 		return 0, nil, fmt.Errorf("auto-table: invalid annotation: value not given")
 	}
 	for advance++; advance < len(data); advance++ {
-		if isSpace(data[advance]) {
+		if utils.IsSpace(data[advance]) {
 			return advance, bytes.TrimSpace(data[:advance]), nil
 		}
 	}

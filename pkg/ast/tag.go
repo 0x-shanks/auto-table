@@ -1,9 +1,8 @@
-package pkg
+package ast
 
 import (
 	"bufio"
 	"fmt"
-	"github.com/hourglasshoro/auto-table/pkg/dialect"
 	"reflect"
 	"strings"
 )
@@ -21,7 +20,7 @@ const (
 	tagIgnore        = "-"
 )
 
-func parseStructTag(d dialect.Dialect, f *field, tag reflect.StructTag) error {
+func parseStructTag(f *Field, tag reflect.StructTag) error {
 	autoTable := tag.Get("autoTable")
 	if autoTable == "" {
 		return nil

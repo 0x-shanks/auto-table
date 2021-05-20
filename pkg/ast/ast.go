@@ -1,4 +1,4 @@
-package pkg
+package ast
 
 import (
 	"fmt"
@@ -8,28 +8,28 @@ import (
 	"go/token"
 )
 
-type structAST struct {
+type StructAST struct {
 	Name       string
 	StructType *ast.StructType
 	Annotation *annotation
 }
 
-func makeStructASTMap(filename string) (map[string]*structAST, error) {
+func MakeStructASTMap(filename string, marker string) (map[string]*StructAST, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
-	structASTMap := map[string]*structAST{}
+	structASTMap := map[string]*StructAST{}
 	for _, decl := range f.Decls {
 		d, ok := decl.(*ast.GenDecl)
 
 		if !ok || d.Tok != token.TYPE || d.Doc == nil {
 			continue
 		}
-		// General Declaration && isType true && //+hoge
+		// General Declaration && isType true && //+marker
 
-		annotation, err := parseAnnotation(d.Doc)
+		annotation, err := parseAnnotation(d.Doc, marker)
 		if err != nil {
 			return nil, err
 		}
@@ -45,7 +45,7 @@ func makeStructASTMap(filename string) (map[string]*structAST, error) {
 			if !ok {
 				continue
 			}
-			st := &structAST{
+			st := &StructAST{
 				Name:       s.Name.Name,
 				StructType: t,
 				Annotation: annotation,
@@ -60,16 +60,16 @@ func makeStructASTMap(filename string) (map[string]*structAST, error) {
 	return structASTMap, nil
 }
 
-func detectTypeName(n ast.Node) (str string, name string, isPtr bool, isArray bool, err error) {
+func DetectTypeName(n ast.Node) (str string, name string, isPtr bool, isArray bool, err error) {
 	switch t := n.(type) {
 	case *ast.Field:
-		return detectTypeName(t.Type)
+		return DetectTypeName(t.Type)
 	case *ast.Ident:
 		str = t.Name
 		name = t.Name
 		return
 	case *ast.SelectorExpr:
-		xStr, _, _, _, xErr := detectTypeName(t.X)
+		xStr, _, _, _, xErr := DetectTypeName(t.X)
 		if xErr != nil {
 			err = xErr
 			return
@@ -78,7 +78,7 @@ func detectTypeName(n ast.Node) (str string, name string, isPtr bool, isArray bo
 		name = xStr + "." + t.Sel.Name
 		return
 	case *ast.StarExpr:
-		xStr, _, _, _, xErr := detectTypeName(t.X)
+		xStr, _, _, _, xErr := DetectTypeName(t.X)
 		if xErr != nil {
 			err = xErr
 			return
@@ -88,7 +88,7 @@ func detectTypeName(n ast.Node) (str string, name string, isPtr bool, isArray bo
 		isPtr = true
 		return
 	case *ast.ArrayType:
-		eltStr, _, _, _, eltErr := detectTypeName(t.Elt)
+		eltStr, _, _, _, eltErr := DetectTypeName(t.Elt)
 		if eltErr != nil {
 			err = eltErr
 			return

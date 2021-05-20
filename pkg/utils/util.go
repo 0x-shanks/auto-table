@@ -1,6 +1,6 @@
-package pkg
+package utils
 
-func inStrings(a []string, s string) bool {
+func InStrings(a []string, s string) bool {
 	for _, v := range a {
 		if v == s {
 			return true
@@ -9,6 +9,6 @@ func inStrings(a []string, s string) bool {
 	return false
 }
 
-func isSpace(b byte) bool {
+func IsSpace(b byte) bool {
 	return b == ' ' || b == '\t'
 }

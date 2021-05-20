@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/hourglasshoro/auto-table/pkg"
+	"github.com/hourglasshoro/auto-table/pkg/file"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"os"
@@ -46,11 +47,11 @@ to quickly create a Cobra application.`,
 			return fmt.Errorf("cannot get current dir")
 		}
 		source := cmd.Flag("source").Value.String()
-		source = pkg.Solve(source, currentDir)
+		source = file.Solve(source, currentDir)
 		output := cmd.Flag("output").Value.String()
-		output = pkg.Solve(output, currentDir)
+		output = file.Solve(output, currentDir)
 		defaultFileSystem := afero.NewOsFs()
-		conv := pkg.NewConverter(source, output, defaultFileSystem)
+		conv := pkg.NewConverter(source, output, &defaultFileSystem, "test")
 		err = conv.CreateSQL()
 		return
 	},

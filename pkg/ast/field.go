@@ -1,4 +1,4 @@
-package pkg
+package ast
 
 import (
 	"github.com/hourglasshoro/auto-table/pkg/dialect"
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type field struct {
+type Field struct {
 	Table         string
 	Name          string
 	GoType        string
@@ -24,20 +24,25 @@ type field struct {
 	Default       string
 	Extra         string
 	Nullable      bool
-	ForeignKey    *dialect.ForeignKey
+	ForeignKey    *ForeignKey
 }
 
-func newField(
+type ForeignKey struct {
+	Table  string
+	Column string
+}
+
+func NewField(
 	d dialect.Dialect,
 	tableName string,
 	typeName string,
 	fieldName *string,
 	f *ast.Field,
-	foreignKey *dialect.ForeignKey,
+	foreignKey *ForeignKey,
 	primaryKey bool,
 	autoIncrement bool,
-) (*field, error) {
-	ret := &field{
+) (*Field, error) {
+	ret := &Field{
 		Table:  tableName,
 		GoType: typeName,
 	}
@@ -57,7 +62,7 @@ func newField(
 		if err != nil {
 			return nil, err
 		}
-		if err := parseStructTag(d, ret, reflect.StructTag(s)); err != nil {
+		if err := parseStructTag(ret, reflect.StructTag(s)); err != nil {
 			return nil, err
 		}
 	}
@@ -87,11 +92,11 @@ func newField(
 	return ret, nil
 }
 
-func (f *field) IsEmbedded() bool {
+func (f *Field) IsEmbedded() bool {
 	return f.Name == ""
 }
 
-func (f *field) ToField() dialect.Field {
+func (f *Field) ToField() dialect.Field {
 	return dialect.Field{
 		Table:         f.Table,
 		Name:          f.Column,
@@ -101,11 +106,10 @@ func (f *field) ToField() dialect.Field {
 		Default:       f.Default,
 		Extra:         f.Extra,
 		Nullable:      f.Nullable,
-		ForeignKey:    f.ForeignKey,
 	}
 }
 
-func makePrimaryKeyColumns(fields []*field) (pks []*field) {
+func MakePrimaryKeyColumns(fields []*Field) (pks []*Field) {
 	for _, f := range fields {
 		if f.PrimaryKey {
 			pks = append(pks, f)
@@ -114,11 +118,14 @@ func makePrimaryKeyColumns(fields []*field) (pks []*field) {
 	return
 }
 
-func makeForeignKeyColumns(fields []*field) (fks map[string]dialect.ForeignKey) {
+func MakeForeignKeyColumns(fields []*Field) (fks map[string]dialect.ForeignKey) {
 	fks = map[string]dialect.ForeignKey{} //map[fieldName]reference
 	for _, f := range fields {
 		if f.ForeignKey != nil {
-			fks[f.Name] = *f.ForeignKey
+			fks[f.Name] = dialect.ForeignKey{
+				Table:  f.ForeignKey.Table,
+				Column: f.ForeignKey.Column,
+			}
 		}
 	}
 
