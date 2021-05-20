@@ -16,6 +16,7 @@ type Converter struct {
 	OutputDir  string
 	FileSystem *afero.Fs
 	Marker     string
+	TagMaker   string
 }
 
 func NewConverter(
@@ -31,15 +32,14 @@ func NewConverter(
 		OutputDir:  outputDir,
 		FileSystem: fileSystem,
 		Marker:     fmt.Sprintf("+%s", marker),
+		TagMaker:   marker,
 	}
 }
 
 func (c *Converter) CreateSQL() (err error) {
 	filenames, err := file.GetFiles(c.FileSystem, c.SourceDir)
-	sqlMap, dependencyMap, err := sql.CreateSQL(c.Dialect, c.AutoID, c.Marker, filenames)
+	sqlMap, dependencyMap, err := sql.CreateSQL(c.Dialect, c.AutoID, c.Marker, c.TagMaker, filenames)
 	m := migration.NewMigrate(sqlMap, dependencyMap, c.OutputDir)
-	m.Print("micropost")
-
-	//err = m.WriteFile(c.FileSystem)
+	err = m.WriteFile(c.FileSystem)
 	return
 }

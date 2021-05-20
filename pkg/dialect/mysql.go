@@ -156,7 +156,7 @@ func (d *MySQL) CreateTableSQL(table Table) []string {
 				fmt.Sprintf("FOREIGN KEY (%s) REFERENCES %s(%s)",
 					d.Quote(stringutil.ToSnakeCase(name)),
 					d.Quote(stringutil.ToSnakeCase(reference.Table)),
-					d.Quote(reference.Column)))
+					d.Quote(stringutil.ToSnakeCase(reference.Column))))
 		}
 	}
 

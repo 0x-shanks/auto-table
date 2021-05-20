@@ -10,6 +10,7 @@ import (
 const (
 	tagDefault       = "default"
 	tagPrimaryKey    = "pk"
+	tagForeignKey    = "fk"
 	tagAutoIncrement = "autoincrement"
 	tagIndex         = "index"
 	tagUnique        = "unique"
@@ -20,12 +21,12 @@ const (
 	tagIgnore        = "-"
 )
 
-func parseStructTag(f *Field, tag reflect.StructTag) error {
-	autoTable := tag.Get("autoTable")
-	if autoTable == "" {
+func parseStructTag(marker string, f *Field, tag reflect.StructTag) error {
+	tagStr := tag.Get(marker)
+	if tagStr == "" {
 		return nil
 	}
-	scanner := bufio.NewScanner(strings.NewReader(autoTable))
+	scanner := bufio.NewScanner(strings.NewReader(tagStr))
 	scanner.Split(tagOptionSplit)
 	for scanner.Scan() {
 		opt := scanner.Text()
@@ -37,6 +38,12 @@ func parseStructTag(f *Field, tag reflect.StructTag) error {
 			}
 		case tagPrimaryKey:
 			f.PrimaryKey = true
+		case tagForeignKey:
+			v := strings.Split(optval[1], ".")
+			if len(v) != 2 {
+				return fmt.Errorf("foreign key option requires a structure and a field: %s", f.Name)
+			}
+			f.ForeignKey = &ForeignKey{Table: v[0], Column: v[1]}
 		case tagAutoIncrement:
 			f.AutoIncrement = true
 		case tagIndex:

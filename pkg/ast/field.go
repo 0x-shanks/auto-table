@@ -33,6 +33,7 @@ type ForeignKey struct {
 }
 
 func NewField(
+	marker string,
 	d dialect.Dialect,
 	tableName string,
 	typeName string,
@@ -62,7 +63,7 @@ func NewField(
 		if err != nil {
 			return nil, err
 		}
-		if err := parseStructTag(ret, reflect.StructTag(s)); err != nil {
+		if err := parseStructTag(marker, ret, reflect.StructTag(s)); err != nil {
 			return nil, err
 		}
 	}

@@ -30,14 +30,14 @@ type SQL struct {
 }
 
 // CreateSQL creates SQL statements from files.
-func CreateSQL(dialect d.Dialect, isAutoID bool, marker string, filenames []string) (sqlMap map[string]*SQL, dependencyMap map[string]map[string]struct{}, err error) {
-	tableASTMap, tableNames, dependencyMap, err := makeTableASTMap(dialect, isAutoID, marker, filenames)
+func CreateSQL(dialect d.Dialect, isAutoID bool, marker string, tagMarker string, filenames []string) (sqlMap map[string]*SQL, dependencyMap map[string]map[string]struct{}, err error) {
+	tableASTMap, tableNames, dependencyMap, err := makeTableASTMap(dialect, isAutoID, marker, tagMarker, filenames)
 	sqlMap = makeSQLMap(dialect, tableASTMap, tableNames)
 	return
 }
 
 // makeTableASTMap create own table structure from a file
-func makeTableASTMap(dialect d.Dialect, isAutoID bool, marker string, filenames []string) (tableASTMap map[string]*ast.Table, tableNames []string, dependencyMap map[string]map[string]struct{}, err error) {
+func makeTableASTMap(dialect d.Dialect, isAutoID bool, marker string, tagMarker string, filenames []string) (tableASTMap map[string]*ast.Table, tableNames []string, dependencyMap map[string]map[string]struct{}, err error) {
 
 	modelASTMap, err := parseFileToASTMap(filenames, marker)
 
@@ -54,7 +54,7 @@ func makeTableASTMap(dialect d.Dialect, isAutoID bool, marker string, filenames 
 		dependencyMap[modelName] = map[string]struct{}{}
 
 		for _, fld := range StructAST.StructType.Fields.List {
-			field, newHasID, newIDType, tErr := makeField(dialect, modelASTMap, tableASTMap, dependencyMap, modelName, fld, isAutoID, hasID, idType)
+			field, newHasID, newIDType, tErr := makeField(tagMarker, dialect, modelASTMap, tableASTMap, dependencyMap, modelName, fld, isAutoID, hasID, idType)
 			if tErr != nil {
 				log.Print(tErr)
 				continue
@@ -101,6 +101,7 @@ func parseFileToASTMap(filenames []string, marker string) (modelASTMap map[strin
 
 // makeField gets its own Field structure from ast.StructAST
 func makeField(
+	tagMarker string,
 	dialect d.Dialect,
 	modelASTMap map[string]*ast.StructAST,
 	tableASTMap map[string]*ast.Table, // With side effects
@@ -133,7 +134,7 @@ func makeField(
 		}
 	}
 
-	newTypeStr, fieldName, foreignKey, tErr := autoMakeForeignRelation(dialect, modelASTMap, tableASTMap, dependencyMap, modelName, fld, typeName, isArray, newHasID, newIDType)
+	newTypeStr, fieldName, foreignKey, tErr := autoMakeForeignRelation(tagMarker, dialect, modelASTMap, tableASTMap, dependencyMap, modelName, fld, typeName, isArray, newHasID, newIDType)
 	if newTypeStr != "" {
 		typeStr = newTypeStr
 	}
@@ -142,7 +143,7 @@ func makeField(
 		return
 	}
 
-	field, err = ast.NewField(dialect, modelName, typeStr, fieldName, fld, foreignKey, isPrimaryKey, isAutoIncrement)
+	field, err = ast.NewField(tagMarker, dialect, modelName, typeStr, fieldName, fld, foreignKey, isPrimaryKey, isAutoIncrement)
 	if err != nil {
 		return
 	}
@@ -175,6 +176,7 @@ func autoMakePrimaryFromID(isAutoID bool, fld *goast.Field, typeStr string) (isP
 
 // autoMakeForeignRelation will automatically rename columns, add foreign keys, and create a cross reference table when the current model struct has another model as a field.
 func autoMakeForeignRelation(
+	tagMarker string,
 	dialect d.Dialect,
 	modelASTMap map[string]*ast.StructAST,
 	tableASTMap map[string]*ast.Table, // With side effects
@@ -207,7 +209,7 @@ func autoMakeForeignRelation(
 				Column: idCandidate,
 			}
 			dependencyMap[crossReference][modelName] = struct{}{}
-			f, fErr := ast.NewField(dialect, modelName, idType, &sFieldName, fld, sForeignKey, true, false)
+			f, fErr := ast.NewField(tagMarker, dialect, modelName, idType, &sFieldName, fld, sForeignKey, true, false)
 			if fErr != nil {
 				err = fErr
 				return
@@ -236,7 +238,7 @@ func autoMakeForeignRelation(
 					dependencyMap[crossReference][stringutil.ToSnakeCase(parent.Name)] = struct{}{}
 				}
 			}
-			f, fErr = ast.NewField(dialect, modelName, pTypeStr, pFieldName, fld, pForeignKey, true, false)
+			f, fErr = ast.NewField(tagMarker, dialect, modelName, pTypeStr, pFieldName, fld, pForeignKey, true, false)
 			if fErr != nil {
 				err = fErr
 				return
