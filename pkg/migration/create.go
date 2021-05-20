@@ -4,6 +4,7 @@ import (
 	"fmt"
 	sql "github.com/hourglasshoro/auto-table/pkg/sql"
 	"github.com/spf13/afero"
+	"log"
 	"time"
 )
 
@@ -60,7 +61,7 @@ func NewMigrate(sqls map[string]*sql.SQL, dependencyMap map[string]map[string]st
 	return migrates
 }
 
-func (m *Migrates) Output(fs *afero.Fs) (err error) {
+func (m *Migrates) WriteFile(fs *afero.Fs) (err error) {
 	for _, filename := range m.Order {
 
 		// Up
@@ -77,6 +78,18 @@ func (m *Migrates) Output(fs *afero.Fs) (err error) {
 		if wErr != nil {
 			err = wErr
 			return
+		}
+	}
+	return
+}
+
+func (m *Migrates) Print(table string) {
+	for _, filename := range m.Order {
+		if filename == table || table == "" {
+			// Up
+			log.Print(m.Map[filename].Up.SQL)
+			// Down
+			log.Print(m.Map[filename].Down.SQL)
 		}
 	}
 	return

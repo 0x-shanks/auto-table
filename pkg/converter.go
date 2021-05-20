@@ -3,10 +3,10 @@ package pkg
 import (
 	"fmt"
 	"github.com/hourglasshoro/auto-table/pkg/dialect"
+	"github.com/hourglasshoro/auto-table/pkg/file"
 	"github.com/hourglasshoro/auto-table/pkg/migration"
 	"github.com/hourglasshoro/auto-table/pkg/sql"
 	"github.com/spf13/afero"
-	"io/fs"
 )
 
 type Converter struct {
@@ -35,21 +35,11 @@ func NewConverter(
 }
 
 func (c *Converter) CreateSQL() (err error) {
-	var filenames []string
-	err = afero.Walk(*c.FileSystem, c.SourceDir,
-		func(path string, info fs.FileInfo, err error) error {
-			if !info.IsDir() {
-				filenames = append(filenames, path)
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		return err
-	}
+	filenames, err := file.GetFiles(c.FileSystem, c.SourceDir)
+	sqlMap, dependencyMap, err := sql.CreateSQL(c.Dialect, c.AutoID, c.Marker, filenames)
+	m := migration.NewMigrate(sqlMap, dependencyMap, c.OutputDir)
+	m.Print("micropost")
 
-	sqls, dependencyMap, err := sql.CreateSQL(c.Dialect, c.AutoID, c.Marker, filenames)
-	m := migration.NewMigrate(sqls, dependencyMap, c.OutputDir)
-	err = m.Output(c.FileSystem)
+	//err = m.WriteFile(c.FileSystem)
 	return
 }

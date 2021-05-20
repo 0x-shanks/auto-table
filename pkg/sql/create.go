@@ -29,12 +29,14 @@ type SQL struct {
 	}
 }
 
+// CreateSQL creates SQL statements from files.
 func CreateSQL(dialect d.Dialect, isAutoID bool, marker string, filenames []string) (sqlMap map[string]*SQL, dependencyMap map[string]map[string]struct{}, err error) {
 	tableASTMap, tableNames, dependencyMap, err := makeTableASTMap(dialect, isAutoID, marker, filenames)
 	sqlMap = makeSQLMap(dialect, tableASTMap, tableNames)
 	return
 }
 
+// makeTableASTMap create own table structure from a file
 func makeTableASTMap(dialect d.Dialect, isAutoID bool, marker string, filenames []string) (tableASTMap map[string]*ast.Table, tableNames []string, dependencyMap map[string]map[string]struct{}, err error) {
 
 	modelASTMap, err := parseFileToASTMap(filenames, marker)
@@ -79,6 +81,7 @@ func makeTableASTMap(dialect d.Dialect, isAutoID bool, marker string, filenames 
 	return
 }
 
+// parseFileToASTMap parses from file to ast.StructAST
 func parseFileToASTMap(filenames []string, marker string) (modelASTMap map[string]*ast.StructAST, err error) {
 	modelASTMap = make(map[string]*ast.StructAST)
 
@@ -96,6 +99,7 @@ func parseFileToASTMap(filenames []string, marker string) (modelASTMap map[strin
 	return
 }
 
+// makeField gets its own Field structure from ast.StructAST
 func makeField(
 	dialect d.Dialect,
 	modelASTMap map[string]*ast.StructAST,
@@ -114,8 +118,8 @@ func makeField(
 		return
 	}
 
+	// Compare whether the table currently has an id with whether the field you are trying to create is an id.
 	if hasID || tHasID {
-		newHasID = true
 		if tHasID {
 			if idType != "" {
 				err = errors.New("multiple IDs exist")
@@ -129,7 +133,10 @@ func makeField(
 		}
 	}
 
-	fieldName, foreignKey, tErr := autoMakeForeignRelation(dialect, modelASTMap, tableASTMap, dependencyMap, modelName, fld, typeName, isArray, newHasID, newIDType)
+	newTypeStr, fieldName, foreignKey, tErr := autoMakeForeignRelation(dialect, modelASTMap, tableASTMap, dependencyMap, modelName, fld, typeName, isArray, newHasID, newIDType)
+	if newTypeStr != "" {
+		typeStr = newTypeStr
+	}
 	if tErr != nil {
 		err = tErr
 		return
@@ -152,6 +159,7 @@ func makeField(
 	return
 }
 
+// autoMakePrimaryFromID will automatically make the primary key if the field it handles is named ID.
 func autoMakePrimaryFromID(isAutoID bool, fld *goast.Field, typeStr string) (isPrimaryKey bool, isAutoIncrement bool, hasID bool, idType string, err error) {
 	// Check if there is a field named id
 	if strings.ToLower(fld.Names[0].Name) == idCandidate {
@@ -165,6 +173,7 @@ func autoMakePrimaryFromID(isAutoID bool, fld *goast.Field, typeStr string) (isP
 	return
 }
 
+// autoMakeForeignRelation will automatically rename columns, add foreign keys, and create a cross reference table when the current model struct has another model as a field.
 func autoMakeForeignRelation(
 	dialect d.Dialect,
 	modelASTMap map[string]*ast.StructAST,
@@ -176,7 +185,7 @@ func autoMakeForeignRelation(
 	isArray bool,
 	hasID bool,
 	idType string,
-) (fieldName *string, foreignKey *ast.ForeignKey, err error) {
+) (typeStr string, fieldName *string, foreignKey *ast.ForeignKey, err error) {
 	// Check to see if it is a dependent model
 	if parent, ok := modelASTMap[strings.ToLower(typeName)]; ok {
 		if isArray {
@@ -214,6 +223,10 @@ func autoMakeForeignRelation(
 				if strings.ToLower(f.Names[0].Name) == idCandidate {
 
 					pTypeStr, _, _, _, err = ast.DetectTypeName(f.Type)
+					if err != nil {
+						return
+					}
+					typeStr = pTypeStr
 					f := fmt.Sprintf("%v%v", stringutil.ToUpperCamelCase(fld.Names[0].Name), stringutil.ToUpperCamelCase(idCandidate))
 					pFieldName = &f
 					pForeignKey = &ast.ForeignKey{
@@ -237,6 +250,12 @@ func autoMakeForeignRelation(
 			for _, f := range parent.StructType.Fields.List {
 				// Set foreign key
 				if strings.ToLower(f.Names[0].Name) == idCandidate {
+					pTypeStr, _, _, _, tErr := ast.DetectTypeName(f.Type)
+					if tErr != nil {
+						err = tErr
+						return
+					}
+					typeStr = pTypeStr
 					f := fmt.Sprintf("%v%v", stringutil.ToUpperCamelCase(fld.Names[0].Name), stringutil.ToUpperCamelCase(idCandidate))
 					fieldName = &f
 					foreignKey = &ast.ForeignKey{
@@ -251,6 +270,7 @@ func autoMakeForeignRelation(
 	return
 }
 
+// makeSQLMap generates SQL statements from the table structure according to the dialect.
 func makeSQLMap(dialect d.Dialect, tableASTMap map[string]*ast.Table, tableNames []string) (sqlMap map[string]*SQL) {
 	sqlMap = map[string]*SQL{} // map[tableName]schema
 	for _, name := range tableNames {
