@@ -15,18 +15,22 @@ const idCandidate = "id"
 
 var intPrimitives = map[string]struct{}{"int8": {}, "int16": {}, "int32": {}, "int64": {}, "int": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {}, "uint": {}}
 
+type Table struct {
+	Create string
+	Drop   string
+}
+
+type Record struct {
+	FindAll string
+	Find    string
+	Create  string
+	Delete  string
+	Update  string
+}
+
 type SQL struct {
-	Table struct {
-		Create string
-		Drop   string
-	}
-	Record struct {
-		FindAll string
-		Find    string
-		Create  string
-		Delete  string
-		Update  string
-	}
+	Table  Table
+	Record Record
 }
 
 // CreateSQL creates SQL statements from files.
@@ -303,20 +307,11 @@ func makeSQLMap(dialect d.Dialect, tableASTMap map[string]*ast.Table, tableNames
 		updateSQL := strings.Join(dialect.UpdateSQL(t), "")
 
 		sqlMap[name] = &SQL{
-			Table: struct {
-				Create string
-				Drop   string
-			}{
+			Table: Table{
 				Create: createTableSQL,
 				Drop:   dropTableSQL,
 			},
-			Record: struct {
-				FindAll string
-				Find    string
-				Create  string
-				Delete  string
-				Update  string
-			}{
+			Record: Record{
 				FindAll: findAllSQL,
 				Find:    findSQL,
 				Create:  createSQL,
